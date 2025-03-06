@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>视频提取音频</title>
+    <style>
+        /* 复用 skeleton.html 的样式 */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        
+        .upload-area.drag-over {
+            border-color: #4CAF50;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .progress {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        
+        .file-info {
+            margin-top: 10px;
+            text-align: left;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>视频提取音频</h1>
+        <div class="workspace">
+            <div class="upload-area" id="dropArea">
+                <div class="upload-icon">📤</div>
+                <p>拖拽MP4视频文件到这里或点击上传</p>
+                <input type="file" id="fileInput" accept="video/mp4" style="display: none">
+                <div class="progress-bar" style="display: none">
+                    <div class="progress" id="uploadProgress"></div>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none"></div>
+            </div>
+            
+            <div class="control-area">
+                <button class="btn" id="downloadBtn" style="display: none">下载音频文件</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">处理完成！</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentInputFilename = null;
+
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const toast = document.getElementById('toast');
+
+        // 拖拽上传相关事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('drag-over');
+            });
+        });
+
+        dropArea.addEventListener('drop', function(e) {
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        dropArea.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('video/mp4')) {
+                alert('请上传MP4格式的视频！');
+                return;
+            }
+
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+                <strong>文件名：</strong>${file.name}<br>
+                <strong>大小：</strong>${(file.size / (1024 * 1024)).toFixed(2)} MB
+            `;
+
+            uploadFile(file);
+        }
+
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('video', file);
+
+            uploadProgress.parentElement.style.display = 'block';
+            uploadProgress.style.width = '0%';
+            downloadBtn.style.display = 'none';
+
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    uploadProgress.style.width = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    currentInputFilename = response.input_filename;
+                    showToast('上传成功，开始处理...');
+                } else {
+                    const error = JSON.parse(xhr.responseText);
+                    alert('上传失败: ' + (error.error || '未知错误'));
+                    uploadProgress.style.width = '0%';
+                }
+            };
+
+            xhr.onerror = function() {
+                alert('上传失败: 网络错误');
+                uploadProgress.style.width = '0%';
+            };
+
+            xhr.open('POST', '/upload-audio-video', true);
+            xhr.send(formData);
+        }
+
+        // 监听音频处理进度
+        socket.on('audio_progress', (data) => {
+            if (data.filename !== currentInputFilename) return;
+
+            if (data.status === 'processing') {
+                uploadProgress.style.width = `${data.progress}%`;
+            } else if (data.status === 'completed') {
+                uploadProgress.style.width = '100%';
+                downloadBtn.onclick = () => {
+                    window.location.href = `/download-audio/${data.output_filename}`;
+                };
+                downloadBtn.style.display = 'block';
+                showToast('转换完成！');
+            } else if (data.status === 'error') {
+                alert('处理失败: ' + data.error);
+                uploadProgress.style.width = '0%';
+            }
+        });
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 

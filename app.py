@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 from threading import Thread
 from flask_cors import CORS
+from tools.video_to_audio import convert_videos_to_audio
 
 app = Flask(__name__)
 CORS(app)
@@ -44,7 +45,7 @@ def skeleton():
 
 @app.route('/extract')
 def extract():
-    return "提取音频功能开发中..."
+    return render_template('extract.html')
 
 @app.route('/convert')
 def convert():
@@ -199,6 +200,87 @@ def get_progress(filename):
 
 @app.route('/download-video/<filename>')
 def download_video(filename):
+    try:
+        file_path = os.path.join(OUTPUT_FOLDER, filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': '文件不存在'}), 404
+            
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        return jsonify({'error': f'下载失败: {str(e)}'}), 500
+
+@app.route('/upload-audio-video', methods=['POST'])
+def upload_audio_video():
+    if 'video' not in request.files:
+        return jsonify({'error': '没有文件上传'}), 400
+    
+    file = request.files['video']
+    if file.filename == '':
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    if not file.filename.lower().endswith('.mp4'):
+        return jsonify({'error': '请上传MP4格式的视频'}), 400
+
+    try:
+        # 处理文件名
+        original_name, _ = os.path.splitext(file.filename)
+        safe_name = secure_filename(original_name)
+        if not safe_name:
+            safe_name = 'video'
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        input_filename = f"{timestamp}_{safe_name}.mp4"
+        output_filename = f"{timestamp}_{safe_name}.mp3"
+        
+        # 保存上传的文件
+        input_path = os.path.join(INPUT_FOLDER, input_filename)
+        output_path = os.path.join(OUTPUT_FOLDER, output_filename)
+        
+        file.save(input_path)
+
+        def progress_callback(progress):
+            socketio.emit('audio_progress', {
+                'filename': input_filename,
+                'progress': progress,
+                'status': 'processing'
+            })
+
+        # 在新线程中处理音频转换
+        def process_task():
+            try:
+                convert_videos_to_audio(input_path, output_path, progress_callback)
+                socketio.emit('audio_progress', {
+                    'filename': input_filename,
+                    'progress': 100,
+                    'status': 'completed',
+                    'output_filename': output_filename
+                })
+            except Exception as e:
+                socketio.emit('audio_progress', {
+                    'filename': input_filename,
+                    'error': str(e),
+                    'status': 'error'
+                })
+
+        thread = Thread(target=process_task)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'message': '开始处理',
+            'input_filename': input_filename
+        })
+        
+    except Exception as e:
+        print(f"转换失败: {str(e)}")
+        return jsonify({'error': f'转换失败: {str(e)}'}), 500
+
+@app.route('/download-audio/<filename>')
+def download_audio(filename):
     try:
         file_path = os.path.join(OUTPUT_FOLDER, filename)
         if not os.path.exists(file_path):

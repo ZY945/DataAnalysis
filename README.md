@@ -44,7 +44,7 @@ source venv/bin/activate
 
 2. 启动应用
 ```bash
-python app.py
+./venv/bin/python3 app.py     
 ```
 
 3. 访问应用
