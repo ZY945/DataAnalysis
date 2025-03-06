@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频骨架生成 - AI音视频工具箱</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {margin: 0; padding: 0; box-sizing: border-box;}
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .upload-area {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            text-align: center;
+            border: 2px dashed #ccc;
+            transition: border-color 0.3s;
+        }
+
+        .upload-area.drag-over {
+            border-color: var(--primary);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #ccc;
+            margin-bottom: 1rem;
+        }
+
+        .control-area {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.3s;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-bar .progress {
+            height: 100%;
+            background: var(--primary);
+            width: 0;
+            transition: width 0.3s;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 2rem;
+            background: #4CAF50;
+            color: white;
+            border-radius: 6px;
+            box-shadow: var(--shadow);
+            transform: translateX(200%);
+            transition: transform 0.3s;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .file-info {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            text-align: left;
+        }
+
+        @media (max-width: 768px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>视频骨架生成</h1>
+        <div class="workspace">
+            <div class="upload-area" id="dropArea">
+                <div class="upload-icon">📤</div>
+                <p>拖拽视频文件到这里或点击上传</p>
+                <input type="file" id="fileInput" accept="video/*" style="display: none">
+                <div class="progress-bar" style="display: none">
+                    <div class="progress" id="uploadProgress"></div>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none"></div>
+            </div>
+            
+            <div class="control-area">
+                <button class="btn" id="convertBtn" disabled>生成骨架视频</button>
+                <div class="progress-bar" style="display: none">
+                    <div class="progress" id="convertProgress"></div>
+                </div>
+                <button class="btn" id="downloadBtn" style="display: none">下载转换后的视频</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">处理完成！</div>
+
+    <!-- 添加 Socket.IO 客户端库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+    <script>
+        const socket = io();
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const convertBtn = document.getElementById('convertBtn');
+        const convertProgress = document.getElementById('convertProgress');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const toast = document.getElementById('toast');
+
+        let currentInputFilename = null;
+
+        // 拖拽上传相关事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('drag-over');
+            });
+        });
+
+        dropArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('drag-over');
+            
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                console.log('文件拖放:', file.name);  // 调试日志
+                handleFile(file);
+            }
+        });
+
+        dropArea.addEventListener('click', function() {
+            console.log('点击上传区域');  // 调试日志
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('文件选择:', file.name);  // 调试日志
+                handleFile(file);
+            }
+        });
+
+        function handleFile(file) {
+            console.log('处理文件:', file.name);  // 调试日志
+            
+            if (!file.type.startsWith('video/')) {
+                alert('请上传视频文件！');
+                return;
+            }
+
+            // 显示文件信息
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+                <strong>文件名：</strong>${file.name}<br>
+                <strong>大小：</strong>${(file.size / (1024 * 1024)).toFixed(2)} MB
+            `;
+
+            // 开始上传
+            uploadFile(file);
+        }
+
+        function uploadFile(file) {
+            console.log('开始上传:', file.name);  // 调试日志
+            
+            const formData = new FormData();
+            formData.append('video', file);
+
+            // 显示上传进度条
+            uploadProgress.parentElement.style.display = 'block';
+            uploadProgress.style.width = '0%';
+
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    uploadProgress.style.width = percentComplete + '%';
+                    console.log('上传进度:', percentComplete + '%');  // 调试日志
+                }
+            };
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    console.log('上传完成状态:', xhr.status);  // 调试日志
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (xhr.status === 200) {
+                            currentInputFilename = response.input_filename;
+                            convertBtn.disabled = false;
+                            showToast('上传成功！');
+                            console.log('上传成功，文件名:', currentInputFilename);
+                        } else {
+                            throw new Error(response.error || '上传失败');
+                        }
+                    } catch (error) {
+                        console.error('上传错误:', error);  // 调试日志
+                        alert('上传失败: ' + error.message);
+                        uploadProgress.style.width = '0%';
+                    }
+                }
+            };
+
+            xhr.onerror = function() {
+                console.error('网络错误');  // 调试日志
+                alert('上传失败: 网络错误');
+                uploadProgress.style.width = '0%';
+            };
+
+            xhr.open('POST', '/upload-video', true);
+            xhr.send(formData);
+        }
+
+        convertBtn.addEventListener('click', () => {
+            if (!currentInputFilename) {
+                alert('请先上传视频文件');
+                return;
+            }
+
+            convertBtn.disabled = true;
+            convertProgress.parentElement.style.display = 'block';
+            downloadBtn.style.display = 'none';
+            convertProgress.style.width = '0%';
+
+            // 发送转换请求
+            fetch('/convert-video', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    input_filename: currentInputFilename
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                console.log('服务器响应:', {
+                    message: data.message,  // 会自动解码显示中文
+                    output_filename: data.output_filename
+                });
+            })
+            .catch(error => {
+                alert('处理失败: ' + error.message);
+                convertBtn.disabled = false;
+                convertProgress.style.width = '0%';
+            });
+        });
+
+        // 监听进度更新
+        socket.on('progress_update', (data) => {
+            if (data.filename !== currentInputFilename) return;
+
+            if (data.status === 'processing') {
+                convertProgress.style.width = `${data.progress}%`;
+            } else if (data.status === 'completed') {
+                convertProgress.style.width = '100%';
+                const downloadFilename = `skeleton_${currentInputFilename}`;
+                downloadBtn.onclick = () => {
+                    console.log('Download filename:', downloadFilename);
+                    window.location.href = `/download-video/${encodeURIComponent(downloadFilename)}`;
+                };
+                downloadBtn.style.display = 'block';
+                showToast('处理完成！');
+                convertBtn.disabled = false;
+            } else if (data.status === 'error') {
+                alert('处理失败: ' + data.error);
+                convertBtn.disabled = false;
+                convertProgress.style.width = '0%';
+            }
+
+            // 如果服务器要求断开连接
+            if (data.should_disconnect) {
+                socket.disconnect();
+            }
+        });
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 

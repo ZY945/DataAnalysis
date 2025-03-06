@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI音视频工具箱</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {margin: 0; padding: 0; box-sizing: border-box;}
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem 0;
+            background: #fff;
+            box-shadow: var(--shadow);
+            border-radius: 12px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .tool-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: var(--primary);
+            border-radius: 4px 0 0 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .tool-card:hover::before {
+            opacity: 1;
+        }
+
+        .tool-icon {
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-description {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .tool-status {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #E8F5E9;
+            color: #4CAF50;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI音视频工具箱</h1>
+            <p>专业的音视频处理工具集合</p>
+        </header>
+
+        <div class="tools-grid">
+            <div class="tool-card" onclick="location.href='/translate'">
+                <div class="tool-icon">🌐</div>
+                <h3 class="tool-title">翻译字幕</h3>
+                <p class="tool-description">支持多语言字幕翻译，自动识别语言</p>
+                <span class="tool-status">可用</span>
+            </div>
+
+            <div class="tool-card" onclick="location.href='/lyrics'">
+                <div class="tool-icon">🎵</div>
+                <h3 class="tool-title">分离歌词</h3>
+                <p class="tool-description">智能提取音频中的歌词内容</p>
+                <span class="tool-status">可用</span>
+            </div>
+
+            <div class="tool-card" onclick="location.href='/skeleton'">
+                <div class="tool-icon">🎬</div>
+                <h3 class="tool-title">视频骨架生成</h3>
+                <p class="tool-description">自动生成视频动作骨架</p>
+                <span class="tool-status">可用</span>
+            </div>
+
+            <div class="tool-card" onclick="location.href='/extract'">
+                <div class="tool-icon">🎧</div>
+                <h3 class="tool-title">提取音频</h3>
+                <p class="tool-description">从视频中提取音频内容</p>
+                <span class="tool-status">可用</span>
+            </div>
+
+            <div class="tool-card" onclick="location.href='/convert'">
+                <div class="tool-icon">🔄</div>
+                <h3 class="tool-title">格式转换</h3>
+                <p class="tool-description">音视频格式一键转换</p>
+                <span class="tool-status">可用</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
