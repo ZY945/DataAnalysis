@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF数据查询 - AI工具箱</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary: #F0B90B;  /* 币安金色 */
+            --secondary: #2B3139; /* 深色背景 */
+            --bg: #17191E;       /* 更深的背景色 */
+            --text: #E6E8EA;     /* 浅色文本 */
+            --card-bg: #1E2126;  /* 卡片背景 */
+            --border: #2B3139;   /* 边框颜色 */
+            --up: #0ECB81;       /* 上涨颜色 */
+            --down: #F6465D;     /* 下跌颜色 */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 16px 24px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .market-info {
+            display: flex;
+            gap: 24px;
+        }
+
+        .market-item {
+            text-align: right;
+        }
+
+        .market-label {
+            font-size: 12px;
+            color: var(--text);
+            opacity: 0.7;
+        }
+
+        .market-value {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .search-panel {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .search-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            opacity: 0.9;
+        }
+
+        input, select {
+            padding: 12px 16px;
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.1);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(240, 185, 11, 0.2);
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            height: calc(100vh - 280px);
+            min-height: 600px;
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chart-control {
+            padding: 6px 12px;
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .chart-control.active {
+            background: var(--primary);
+            color: var(--bg);
+            border-color: var(--primary);
+        }
+
+        .charts.separate {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 33, 38, 0.9);
+            color: var(--primary);
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-weight: 500;
+            display: none;
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--border);
+        }
+
+        @media (max-width: 1200px) {
+            .charts.separate {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .market-info {
+                justify-content: center;
+            }
+
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ETF行情分析</h1>
+            <div class="market-info">
+                <div class="market-item">
+                    <div class="market-label">上证指数</div>
+                    <div class="market-value" id="szValue">--</div>
+                </div>
+                <div class="market-item">
+                    <div class="market-label">创业板指</div>
+                    <div class="market-value" id="cybValue">--</div>
+                </div>
+                <div class="market-item">
+                    <div class="market-label">恒生指数</div>
+                    <div class="market-value" id="hsValue">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="search-panel">
+            <div class="search-form">
+                <div class="input-group">
+                    <label>ETF代码 1</label>
+                    <input type="text" id="etfCode1" placeholder="请输入ETF代码" value="159915" list="popularEtfs">
+                    <datalist id="popularEtfs">
+                        <option value="159915">创业板ETF</option>
+                        <option value="510300">沪深300ETF</option>
+                        <option value="510500">中证500ETF</option>
+                        <option value="159949">创业板50ETF</option>
+                    </datalist>
+                </div>
+                <div class="input-group">
+                    <label>ETF代码 2</label>
+                    <input type="text" id="etfCode2" placeholder="可选：输入对比ETF代码" value="510300">
+                </div>
+                <div class="input-group">
+                    <label>开始日期</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="input-group">
+                    <label>结束日期</label>
+                    <input type="date" id="endDate">
+                </div>
+                <div class="input-group">
+                    <label>显示方式</label>
+                    <select id="displayMode">
+                        <option value="single">合并显示</option>
+                        <option value="separate">分开显示</option>
+                    </select>
+                </div>
+                <button onclick="queryETFs()">查询分析</button>
+            </div>
+        </div>
+
+        <div class="charts">
+            <div class="chart-container">
+                <div id="klineChart1" style="width: 100%; height: 100%;"></div>
+            </div>
+            <div class="chart-container">
+                <div id="klineChart2" style="width: 100%; height: 100%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">正在加载数据...</div>
+
+    <script>
+        let klineChart1 = null;
+        let klineChart2 = null;
+        
+        // 初始化图表
+        function initCharts() {
+            const chartOptions = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: ['K线', '成交量'],
+                    textStyle: { color: '#E6E8EA' }
+                },
+                grid: [
+                    {
+                        left: '10%',
+                        right: '10%',
+                        top: '10%',
+                        height: '60%'
+                    },
+                    {
+                        left: '10%',
+                        right: '10%',
+                        top: '75%',
+                        height: '15%'
+                    }
+                ],
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: [],
+                        scale: true,
+                        boundaryGap: true,
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' },
+                        splitLine: { show: false }
+                    },
+                    {
+                        type: 'category',
+                        gridIndex: 1,
+                        data: [],
+                        scale: true,
+                        boundaryGap: true,
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' },
+                        splitLine: { show: false }
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value',
+                        scale: true,
+                        splitLine: { show: false },
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' }
+                    },
+                    {
+                        type: 'value',
+                        gridIndex: 1,
+                        scale: true,
+                        splitLine: { show: false },
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' }
+                    }
+                ],
+                dataZoom: [
+                    {
+                        type: 'inside',
+                        xAxisIndex: [0, 1],
+                        start: 0,
+                        end: 100
+                    },
+                    {
+                        show: true,
+                        type: 'slider',
+                        bottom: '5%',
+                        xAxisIndex: [0, 1],
+                        start: 0,
+                        end: 100
+                    }
+                ],
+                series: []
+            };
+
+            const chart1El = document.getElementById('klineChart1');
+            const chart2El = document.getElementById('klineChart2');
+
+            if (chart1El && chart2El) {
+                klineChart1 = echarts.init(chart1El);
+                klineChart2 = echarts.init(chart2El);
+                klineChart1.setOption(chartOptions);
+                klineChart2.setOption(chartOptions);
+            }
+        }
+
+        // 处理数据格式
+        function processETFData(rawData) {
+            // 按日期排序
+            rawData.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
+            
+            return {
+                dates: rawData.map(item => item.trade_date),
+                prices: {
+                    open: rawData.map(item => Number(item.open)),
+                    close: rawData.map(item => Number(item.close)),
+                    low: rawData.map(item => Number(item.low)),
+                    high: rawData.map(item => Number(item.high))
+                },
+                volumes: rawData.map(item => Number(item.volume))
+            };
+        }
+
+        // 更新图表
+        function updateCharts(data, displayMode) {
+            console.log('原始数据:', data);
+            
+            const processedData = {};
+            for (const [code, etfData] of Object.entries(data)) {
+                if (Array.isArray(etfData)) {
+                    processedData[code] = processETFData(etfData);
+                }
+            }
+            
+            console.log('处理后的数据:', processedData);
+
+            const chartsContainer = document.querySelector('.charts');
+            chartsContainer.className = `charts ${displayMode}`;
+
+            if (displayMode === 'single') {
+                updateCombinedChart(klineChart1, processedData);
+                if (klineChart2) klineChart2.clear();
+            } else {
+                const codes = Object.keys(processedData);
+                if (codes.length > 0) {
+                    updateSingleChart(klineChart1, processedData[codes[0]], codes[0]);
+                }
+                if (codes.length > 1) {
+                    updateSingleChart(klineChart2, processedData[codes[1]], codes[1]);
+                } else if (klineChart2) {
+                    klineChart2.clear();
+                }
+            }
+        }
+
+        // 更新单个图表
+        function updateSingleChart(chart, data, etfCode) {
+            if (!data || !data.dates || !data.prices) {
+                console.error('无效的图表数据:', data);
+                return;
+            }
+
+            const option = {
+                title: {
+                    text: `${etfCode} ETF行情`,
+                    textStyle: { color: '#E6E8EA' },
+                    left: 'center'
+                },
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: data.dates,
+                        scale: true,
+                        boundaryGap: true,
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' },
+                        splitLine: { show: false }
+                    },
+                    {
+                        type: 'category',
+                        gridIndex: 1,
+                        data: data.dates,
+                        scale: true,
+                        boundaryGap: true,
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' },
+                        splitLine: { show: false }
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value',
+                        scale: true,
+                        splitLine: { show: false },
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' }
+                    },
+                    {
+                        type: 'value',
+                        gridIndex: 1,
+                        scale: true,
+                        splitLine: { show: false },
+                        axisLine: { lineStyle: { color: '#8392A5' } },
+                        axisLabel: { color: '#E6E8EA' }
+                    }
+                ],
+                series: [
+                    {
+                        name: 'K线',
+                        type: 'candlestick',
+                        data: data.dates.map((_, index) => [
+                            data.prices.open[index],
+                            data.prices.close[index],
+                            data.prices.low[index],
+                            data.prices.high[index]
+                        ]),
+                        itemStyle: {
+                            color: '#F6465D',
+                            color0: '#0ECB81',
+                            borderColor: '#F6465D',
+                            borderColor0: '#0ECB81'
+                        }
+                    },
+                    {
+                        name: '成交量',
+                        type: 'bar',
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        data: data.volumes
+                    }
+                ]
+            };
+
+            chart.setOption(option, true);
+        }
+
+        // 更新合并图表
+        function updateCombinedChart(chart, data) {
+            const series = [];
+            const legends = [];
+            let dates = [];
+
+            Object.entries(data).forEach(([etfCode, etfData], index) => {
+                if (etfData && etfData.dates) {
+                    dates = etfData.dates;
+                    const color = index === 0 ? '#F6465D' : '#0ECB81';
+                    
+                    series.push({
+                        name: `${etfCode} K线`,
+                        type: 'candlestick',
+                        data: etfData.dates.map((_, i) => [
+                            etfData.prices.open[i],
+                            etfData.prices.close[i],
+                            etfData.prices.low[i],
+                            etfData.prices.high[i]
+                        ]),
+                        itemStyle: {
+                            color: color,
+                            borderColor: color
+                        }
+                    });
+
+                    series.push({
+                        name: `${etfCode} 成交量`,
+                        type: 'bar',
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        data: etfData.volumes
+                    });
+
+                    legends.push(`${etfCode} K线`, `${etfCode} 成交量`);
+                }
+            });
+
+            const option = {
+                title: {
+                    text: 'ETF对比分析',
+                    textStyle: { color: '#E6E8EA' },
+                    left: 'center'
+                },
+                legend: {
+                    data: legends,
+                    textStyle: { color: '#E6E8EA' },
+                    top: 30
+                },
+                xAxis: [
+                    { data: dates },
+                    { data: dates }
+                ],
+                series: series
+            };
+
+            chart.setOption(option, true);
+        }
+
+        // 查询ETF数据
+        async function queryETFs() {
+            const etfCode1 = document.getElementById('etfCode1').value.trim();
+            const etfCode2 = document.getElementById('etfCode2').value.trim();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const displayMode = document.getElementById('displayMode').value;
+
+            if (!etfCode1) {
+                alert('请输入ETF代码');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            loading.textContent = '正在加载数据...';
+
+            try {
+                const response = await fetch('/api/etf/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        etf_codes: [etfCode1, etfCode2].filter(Boolean),
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+
+                const data = await response.json();
+                console.log('API返回数据:', data);
+
+                if (!response.ok) {
+                    throw new Error(data.error || '查询失败');
+                }
+
+                updateCharts(data, displayMode);
+                loading.style.display = 'none';
+
+            } catch (error) {
+                console.error('查询出错:', error);
+                loading.textContent = `错误: ${error.message}`;
+                setTimeout(() => loading.style.display = 'none', 3000);
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const lastYear = new Date();
+            lastYear.setFullYear(today.getFullYear() - 1);
+            
+            document.getElementById('startDate').value = lastYear.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            
+            initCharts();
+            setTimeout(queryETFs, 500);
+        });
+
+        // 响应窗口大小变化
+        window.addEventListener('resize', () => {
+            klineChart1?.resize();
+            klineChart2?.resize();
+        });
+    </script>
+</body>
+</html> 

@@ -68,3 +68,29 @@ pip install pipreqs
 
 # 然后在项目根目录运行
 pipreqs ./ --encoding=utf8
+
+# 数据来源说明
+
+## 大A股市，ETF数据来源
+数据来源: https://github.com/1nchaos/adata
+
+
+# 贡献
+欢迎大家贡献代码，共同完善这个项目。
+## 贡献
+1. 提交代码
+2. 提交PR
+3. 审核通过后，合并到主分支
+4. 发布新版本
+
+## 生成requirements.txt
+# 安装
+pip install pipreqs
+# 在当前目录生成
+pipreqs . --encoding=utf8 --force
+## 和 akshare 的依赖有冲突
+https://github.com/1nchaos/adata/issues/122
+
+下载https://github.com/sqreen/PyMiniRacer/files/7575004/libmini_racer.dylib.zip
+这里已经下载放入source文件夹里了
+解压后，将libmini_racer.dylib放到site-packages的py_mini_racer目录下

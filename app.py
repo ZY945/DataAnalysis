@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file, Response
+from flask import Flask, render_template, request, jsonify, send_file, Response, url_for
 from flask_socketio import SocketIO, emit
 import os
 from tools.generate_pose import PoseGenerator
@@ -8,9 +8,23 @@ import json
 from threading import Thread
 from flask_cors import CORS
 from tools.video_to_audio import convert_videos_to_audio
+from tools.stock_query import StockQuery
+from tools.steam_query import SteamQuery
+from tools.etf_query import ETFQuery
 
-app = Flask(__name__)
-CORS(app)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+CORS(app, supports_credentials=True, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:8000",  # Fresh 开发服务器
+            "http://localhost:5000"   # Flask 服务器
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": True
+    }
+})
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # 设置文件上传目录
@@ -20,6 +34,15 @@ OUTPUT_FOLDER = os.path.join(BASE_DIR, 'files', 'output')
 
 # 创建 PoseGenerator 实例
 pose_generator = PoseGenerator()
+
+# 创建股票查询实例
+stock_query = StockQuery()
+
+# 创建 SteamQuery 实例
+steam_query = SteamQuery()
+
+# 创建 ETFQuery 实例
+etf_query = ETFQuery()
 
 # 示例数据
 todos = []
@@ -323,6 +346,69 @@ def ensure_directories():
 
 # 在应用初始化时调用
 ensure_directories()
+
+@app.route('/stock')
+def stock():
+    return render_template('stock.html')
+
+@app.route('/api/stock/query', methods=['POST'])
+def query_stock():
+    try:
+        data = request.get_json()
+        stock_codes = data.get('stock_codes', [])
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if not stock_codes:
+            return jsonify({'error': '请输入股票代码'}), 400
+            
+        result = stock_query.get_stocks_data(stock_codes, start_date, end_date)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': f'查询失败: {str(e)}'}), 500
+
+@app.route('/steam')
+def steam():
+    return render_template('steam.html')
+
+@app.route('/api/steam/query', methods=['POST'])
+def query_steam():
+    try:
+        data = request.get_json()
+        item_names = data.get('item_names', [])
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if not item_names:
+            return jsonify({'error': '请输入饰品名称'}), 400
+            
+        result = steam_query.get_items_data(item_names, start_date, end_date)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': f'查询失败: {str(e)}'}), 500
+
+@app.route('/etf')
+def etf():
+    return render_template('etf.html')
+
+@app.route('/api/etf/query', methods=['POST'])
+def query_etf():
+    try:
+        data = request.get_json()
+        etf_codes = data.get('etf_codes', [])
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if not etf_codes:
+            return jsonify({'error': '请输入ETF代码'}), 400
+            
+        result = etf_query.get_etfs_data(etf_codes, start_date, end_date)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': f'查询失败: {str(e)}'}), 500
 
 if __name__ == '__main__':
     socketio.run(app, debug=True) 
