@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 import json
 import os
-from crawler_utils import CrawlerUtils
+from .crawler_utils import CrawlerUtils
 import logging
 from selenium.webdriver.common.by import By
 import re
@@ -182,6 +182,56 @@ class FundQuery:
         except Exception as e:
             logging.error(f"保存数据失败: {str(e)}")
             return False
+
+def get_available_funds():
+    """获取可用的基金列表"""
+    # 预定义的基金列表
+    funds = [
+        {"code": "016068", "name": "鹏华新能源汽车混合C"},
+        {"code": "016067", "name": "鹏华新能源汽车混合A"},
+        {"code": "003835", "name": "鹏华沪深港新兴成长混合A"},
+        {"code": "012769", "name": "华夏中证动漫游戏ETF联接A"},
+        {"code": "161725", "name": "招商中证白酒指数A"},
+        {"code": "012414", "name": "招商中证白酒指数C"},
+        {"code": "000217", "name": "华安黄金易ETF联接C"},
+        {"code": "518800", "name": "国泰黄金ETF"},
+        {"code": "159934", "name": "易方达黄金ETF"},
+        {"code": "018125", "name": "永赢先进制造智选混合发起式A"},
+        {"code": "008888", "name": "华夏国证半导体芯片ETF联接A"},
+        {"code": "018123", "name": "永赢数字经济智选混合发起式A"},
+        {"code": "016531", "name": "鹏华碳中和主题混合C"},
+        {"code": "015283", "name": "华安恒生科技ETF发起式联接A"},
+        {"code": "016387", "name": "华夏恒生科技ETF联接A"},
+        {"code": "017811", "name": "东方人工智能主题混合C"}
+    ]
+    
+    # 尝试从文件系统获取更多基金
+    try:
+        import os
+        import json
+        
+        output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
+        if os.path.exists(output_dir):
+            for fund_code in os.listdir(output_dir):
+                # 检查是否已经在列表中
+                if any(fund["code"] == fund_code for fund in funds):
+                    continue
+                    
+                if os.path.isdir(os.path.join(output_dir, fund_code)):
+                    # 从real_time_value.json中获取基金名称
+                    try:
+                        json_path = os.path.join(output_dir, fund_code, 'real_time_value.json')
+                        if os.path.exists(json_path):
+                            with open(json_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                                fund_name = data.get('fund_name', f'基金({fund_code})')
+                                funds.append({"code": fund_code, "name": fund_name})
+                    except Exception as e:
+                        print(f"读取基金 {fund_code} 信息失败: {str(e)}")
+    except Exception as e:
+        print(f"从文件系统获取基金列表失败: {str(e)}")
+    
+    return funds
 
 def main():
     fund_codes = ['017811', '016387']

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金数据查询 - AI工具箱</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #F0B90B;
+            --secondary: #2B3139;
+            --bg: #17191E;
+            --text: #E6E8EA;
+            --card-bg: #1E2126;
+            --border: #2B3139;
+            --up: #F6465D;   /* 涨-红色 */
+            --down: #0ECB81; /* 跌-绿色 */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .header h1 {
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+
+        .market-info {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .market-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .market-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .market-value {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .search-panel {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .search-form {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        select, input {
+            padding: 12px 16px;
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(240, 185, 11, 0.2);
+        }
+
+        .fund-info {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .info-section {
+            margin-bottom: 20px;
+        }
+
+        .info-section h3 {
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .info-item {
+            padding: 12px;
+            background: var(--secondary);
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .value-up {
+            color: var(--up);
+        }
+
+        .value-down {
+            color: var(--down);
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: var(--primary);
+        }
+
+        .fund-selector {
+            position: relative;
+            width: 300px;
+        }
+
+        .selector-header {
+            background: var(--secondary);
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .selector-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 4px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .fund-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .fund-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .fund-item:hover {
+            background: rgba(240, 185, 11, 0.1);
+        }
+
+        .fund-item input[type="checkbox"] {
+            margin-right: 10px;
+            min-width: auto;
+        }
+
+        .fund-item label {
+            cursor: pointer;
+            margin: 0;
+            opacity: 1;
+        }
+
+        .action-buttons {
+            background: var(--secondary);
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .select-all-btn, .clear-btn {
+            padding: 8px 16px;
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .select-all-btn:hover, .clear-btn:hover {
+            background: var(--primary);
+        }
+
+        .funds-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .fund-card {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .fund-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .fund-title h3 {
+            color: var(--primary);
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .fund-code {
+            background: rgba(240, 185, 11, 0.1);
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .info-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-section:last-child {
+            border-bottom: none;
+        }
+
+        .info-section h4 {
+            color: var(--text);
+            margin-bottom: 16px;
+            font-size: 16px;
+            opacity: 0.9;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .info-grid .info-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .info-item {
+            padding: 12px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .info-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .info-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .value-up {
+            color: var(--up);
+        }
+
+        .value-down {
+            color: var(--down);
+        }
+
+        .holdings-table {
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        .holdings-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .holdings-table th, 
+        .holdings-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .holdings-table th {
+            color: var(--primary);
+            font-weight: 500;
+            background: var(--card-bg);
+        }
+
+        .holdings-table tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .history-chart-container {
+            height: 250px;
+            margin-top: 16px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>基金行情分析</h1>
+            <div class="market-info">
+                <div class="market-item">
+                    <div class="market-label">上证指数</div>
+                    <div class="market-value">--</div>
+                </div>
+                <div class="market-item">
+                    <div class="market-label">创业板指</div>
+                    <div class="market-value">--</div>
+                </div>
+                <div class="market-item">
+                    <div class="market-label">恒生指数</div>
+                    <div class="market-value">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-panel">
+            <div class="search-form">
+                <div class="input-group">
+                    <label>选择基金</label>
+                    <div class="fund-selector">
+                        <div class="selector-header" onclick="toggleFundDropdown(event)">
+                            <span id="fundSelectorText">请选择基金 ▼</span>
+                        </div>
+                        <div class="selector-dropdown" id="fundDropdown">
+                            <div class="fund-list">
+                                <!-- 基金列表将通过JavaScript动态加载 -->
+                                <div class="loading-item">加载中...</div>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="select-all-btn" onclick="selectAllFunds()">全选</button>
+                                <button class="clear-btn" onclick="clearAllFunds()">清空</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="queryFund()">查询分析</button>
+            </div>
+        </div>
+
+        <div id="loading">加载中...</div>
+
+        <div id="fundInfo" class="fund-info" style="display: none;">
+            <div class="funds-container" id="fundsDataContainer">
+                <!-- 这里会动态插入多个基金的数据卡片 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 切换下拉框显示/隐藏
+        function toggleFundDropdown(event) {
+            const dropdown = document.getElementById('fundDropdown');
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'block';
+            }
+            
+            if (event) {
+                event.stopPropagation();
+            }
+        }
+
+        // 全选所有基金
+        function selectAllFunds(event) {
+            const checkboxes = document.querySelectorAll('.fund-checkbox');
+            checkboxes.forEach(checkbox => checkbox.checked = true);
+            if (event) event.stopPropagation();
+        }
+
+        // 清空所有选择
+        function clearAllFunds(event) {
+            const checkboxes = document.querySelectorAll('.fund-checkbox');
+            checkboxes.forEach(checkbox => checkbox.checked = false);
+            if (event) event.stopPropagation();
+        }
+
+        // 获取选中的基金代码数组
+        function getSelectedFunds() {
+            const checkboxes = document.querySelectorAll('.fund-checkbox:checked');
+            return Array.from(checkboxes).map(checkbox => checkbox.value);
+        }
+
+        // 点击选项时阻止关闭下拉框
+        document.querySelectorAll('.fund-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+
+        // 查询基金信息
+        async function queryFund() {
+            const fundCodes = getSelectedFunds();
+            if (fundCodes.length === 0) {
+                alert('请选择至少一个基金');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const fundInfo = document.getElementById('fundInfo');
+            loading.style.display = 'block';
+            fundInfo.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/fund/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fund_codes: fundCodes })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '查询失败');
+                }
+
+                updateFundInfo(data);
+                fundInfo.style.display = 'block';
+
+            } catch (error) {
+                console.error('查询出错:', error);
+                alert(`查询失败: ${error.message}`);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // 更新基金信息显示
+        function updateFundInfo(data) {
+            const container = document.getElementById('fundsDataContainer');
+            container.innerHTML = ''; // 清空现有内容
+            
+            // 遍历所有基金数据
+            Object.keys(data).forEach(fundCode => {
+                const fundData = data[fundCode];
+                if (!fundData || !fundData.real_time_value) return;
+                
+                const rtv = fundData.real_time_value.real_time;
+                const net = fundData.real_time_value.latest_net;
+                
+                // 创建基金卡片
+                const fundCard = document.createElement('div');
+                fundCard.className = 'fund-card';
+                
+                // 基金标题
+                const fundTitle = document.createElement('div');
+                fundTitle.className = 'fund-title';
+                fundTitle.innerHTML = `
+                    <h3>${fundData.fund_name || `基金(${fundCode})`}</h3>
+                    <div class="fund-code">${fundCode}</div>
+                `;
+                
+                // 实时估值部分
+                const realTimeSection = document.createElement('div');
+                realTimeSection.className = 'info-section';
+                realTimeSection.innerHTML = `
+                    <h4>实时估值</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">当前估值</div>
+                            <div class="info-value">${rtv.value}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">估算涨跌</div>
+                            <div class="info-value ${parseFloat(rtv.change) > 0 ? 'value-up' : parseFloat(rtv.change) < 0 ? 'value-down' : ''}">
+                                ${rtv.change} (${rtv.change_percent})
+                            </div>
+                        </div>
+                        <div class="info-item full-width">
+                            <div class="info-label">更新时间</div>
+                            <div class="info-value">${rtv.update_time}</div>
+                        </div>
+                    </div>
+                `;
+                
+                // 最新净值部分
+                const netValueSection = document.createElement('div');
+                netValueSection.className = 'info-section';
+                netValueSection.innerHTML = `
+                    <h4>最新净值</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">最新净值</div>
+                            <div class="info-value">${net.value}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">涨跌幅</div>
+                            <div class="info-value ${parseFloat(net.change) > 0 ? 'value-up' : parseFloat(net.change) < 0 ? 'value-down' : ''}">
+                                ${net.change} (${net.change_percent})
+                            </div>
+                        </div>
+                        <div class="info-item full-width">
+                            <div class="info-label">净值日期</div>
+                            <div class="info-value">${net.date}</div>
+                        </div>
+                    </div>
+                `;
+                
+                // 添加重仓股信息表格
+                if (fundData.holdings && fundData.holdings.length > 0) {
+                    const holdingsSection = document.createElement('div');
+                    holdingsSection.className = 'info-section';
+                    
+                    let holdingsHTML = '<h4>重仓股信息</h4><div class="holdings-table">';
+                    holdingsHTML += '<table><thead><tr><th>股票</th><th>持仓比例</th><th>涨跌幅</th><th>贡献</th></tr></thead><tbody>';
+                    
+                    fundData.holdings.forEach(holding => {
+                        holdingsHTML += `
+                            <tr>
+                                <td>${holding.stock_name} (${holding.stock_code})</td>
+                                <td>${holding.position_ratio}</td>
+                                <td class="${parseFloat(holding.change_percent) > 0 ? 'value-up' : parseFloat(holding.change_percent) < 0 ? 'value-down' : ''}">${holding.change_percent}</td>
+                                <td class="${parseFloat(holding.contribution) > 0 ? 'value-up' : parseFloat(holding.contribution) < 0 ? 'value-down' : ''}">${holding.contribution}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    holdingsHTML += '</tbody></table></div>';
+                    holdingsSection.innerHTML = holdingsHTML;
+                    fundCard.appendChild(holdingsSection);
+                }
+                
+                // 添加历史对照折线图
+                if (fundData.history && fundData.history.length > 0) {
+                    const historySection = document.createElement('div');
+                    historySection.className = 'info-section';
+                    historySection.innerHTML = `
+                        <h4>历史对照</h4>
+                        <div class="history-chart-container">
+                            <canvas id="historyChart-${fundCode}" width="400" height="200"></canvas>
+                        </div>
+                    `;
+                    fundCard.appendChild(historySection);
+                }
+                
+                // 组装卡片
+                fundCard.appendChild(fundTitle);
+                fundCard.appendChild(realTimeSection);
+                fundCard.appendChild(netValueSection);
+                
+                // 添加到容器
+                container.appendChild(fundCard);
+                
+                // 如果有历史数据，绘制折线图
+                if (fundData.history && fundData.history.length > 0) {
+                    drawHistoryChart(fundCode, fundData.history);
+                }
+            });
+        }
+
+        // 绘制历史对照折线图
+        function drawHistoryChart(fundCode, historyData) {
+            // 反转数据以便按时间顺序显示
+            const reversedData = [...historyData].reverse();
+            
+            const ctx = document.getElementById(`historyChart-${fundCode}`).getContext('2d');
+            
+            // 准备图表数据
+            const labels = reversedData.map(item => item.date);
+            const actualData = reversedData.map(item => parseFloat(item.actual_growth));
+            const estimatedData = reversedData.map(item => parseFloat(item.estimated_growth));
+            
+            // 创建图表
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '实际涨跌',
+                            data: actualData,
+                            borderColor: '#F6465D',
+                            backgroundColor: 'rgba(246, 70, 93, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            tension: 0.1
+                        },
+                        {
+                            label: '预估涨跌',
+                            data: estimatedData,
+                            borderColor: '#1E88E5',
+                            backgroundColor: 'rgba(30, 136, 229, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            tension: 0.1,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#E6E8EA'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#E6E8EA'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#E6E8EA',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 设置涨跌颜色
+        function setValueColor(elementId, change) {
+            const element = document.getElementById(elementId);
+            element.className = 'info-value ' + 
+                (change > 0 ? 'value-up' : change < 0 ? 'value-down' : '');
+        }
+
+        // 添加这个函数来从后端获取基金列表
+        async function loadFundList() {
+            try {
+                const response = await fetch('/api/fund/list');
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '获取基金列表失败');
+                }
+                
+                renderFundList(data.funds);
+            } catch (error) {
+                console.error('加载基金列表出错:', error);
+                alert(`获取基金列表失败: ${error.message}`);
+            }
+        }
+
+        // 渲染基金列表到下拉框
+        function renderFundList(funds) {
+            const fundListContainer = document.querySelector('.fund-list');
+            fundListContainer.innerHTML = ''; // 清空现有内容
+            
+            if (funds.length === 0) {
+                fundListContainer.innerHTML = '<div class="fund-item">没有可用的基金</div>';
+                return;
+            }
+            
+            // 为每个基金创建选项
+            funds.forEach(fund => {
+                const fundItem = document.createElement('div');
+                fundItem.className = 'fund-item';
+                
+                fundItem.innerHTML = `
+                    <input type="checkbox" id="fund-${fund.code}" class="fund-checkbox" value="${fund.code}">
+                    <label for="fund-${fund.code}">${fund.name} (${fund.code})</label>
+                `;
+                
+                fundListContainer.appendChild(fundItem);
+            });
+            
+            // 重新绑定点击事件
+            document.querySelectorAll('.fund-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            });
+        }
+
+        // 页面加载时获取基金列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFundList();
+        });
+    </script>
+</body>
+</html> 

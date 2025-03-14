@@ -11,6 +11,7 @@ from tools.video_to_audio import convert_videos_to_audio
 from tools.stock_query import StockQuery
 from tools.steam_query import SteamQuery
 from tools.etf_query import ETFQuery
+from tools.fund_query import FundQuery
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app, supports_credentials=True, resources={
@@ -43,6 +44,9 @@ steam_query = SteamQuery()
 
 # 创建 ETFQuery 实例
 etf_query = ETFQuery()
+
+# 创建 FundQuery 实例
+fund_query = FundQuery()
 
 # 示例数据
 todos = []
@@ -409,6 +413,42 @@ def query_etf():
         
     except Exception as e:
         return jsonify({'error': f'查询失败: {str(e)}'}), 500
+
+@app.route('/fund')
+def fund():
+    return render_template('fund.html')
+
+@app.route('/api/fund/query', methods=['POST'])
+def query_fund():
+    try:
+        data = request.get_json()
+        fund_codes = data.get('fund_codes', [])
+        
+        if not fund_codes:
+            return jsonify({'error': '请输入基金代码'}), 400
+            
+        results = {}
+        for fund_code in fund_codes:
+            fund_info = fund_query.get_fund_info(fund_code)
+            if fund_info:
+                results[fund_code] = fund_info
+                
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({'error': f'查询失败: {str(e)}'}), 500
+
+@app.route('/api/fund/list', methods=['GET'])
+def get_fund_list():
+    try:
+        # 从你的数据源获取基金列表
+        # 这里是一个示例，你需要根据实际情况修改
+        from tools.fund_query import get_available_funds
+        
+        funds = get_available_funds()
+        return jsonify({"funds": funds})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     socketio.run(app, debug=True) 
