@@ -391,6 +391,135 @@
             border-radius: 8px;
             padding: 16px;
         }
+
+        .expandable-section {
+            border-top: 1px solid var(--border);
+        }
+
+        .expand-trigger {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .expand-trigger:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .expand-icon {
+            transition: transform 0.3s;
+        }
+
+        .expand-content {
+            display: none;
+            padding: 0 20px 20px;
+        }
+
+        .expandable-section.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .expandable-section.expanded .expand-content {
+            display: block;
+        }
+
+        /* 添加浮动详情窗口样式 */
+        .detail-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            padding: 0;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--secondary);
+            border-bottom: 1px solid var(--border);
+            border-radius: 12px 12px 0 0;
+            cursor: move; /* 指示可拖动 */
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        /* 添加详情按钮样式 */
+        .detail-button {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 14px;
+            transition: all 0.2s;
+            margin-top: 12px;
+        }
+
+        .detail-button:hover {
+            background: rgba(240, 185, 11, 0.1);
+        }
+
+        .detail-button i {
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -530,6 +659,31 @@
             const container = document.getElementById('fundsDataContainer');
             container.innerHTML = ''; // 清空现有内容
             
+            // 创建模态窗口和遮罩层（如果不存在）
+            if (!document.getElementById('detailModal')) {
+                const modalOverlay = document.createElement('div');
+                modalOverlay.className = 'modal-overlay';
+                modalOverlay.id = 'modalOverlay';
+                
+                const detailModal = document.createElement('div');
+                detailModal.className = 'detail-modal';
+                detailModal.id = 'detailModal';
+                
+                detailModal.innerHTML = `
+                    <div class="modal-header" id="modalHeader">
+                        <div class="modal-title">基金详情</div>
+                        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                    </div>
+                    <div class="modal-body" id="modalBody"></div>
+                `;
+                
+                document.body.appendChild(modalOverlay);
+                document.body.appendChild(detailModal);
+                
+                // 添加拖动功能
+                makeModalDraggable();
+            }
+            
             // 遍历所有基金数据
             Object.keys(data).forEach(fundCode => {
                 const fundData = data[fundCode];
@@ -596,55 +750,120 @@
                     </div>
                 `;
                 
-                // 添加重仓股信息表格
-                if (fundData.holdings && fundData.holdings.length > 0) {
-                    const holdingsSection = document.createElement('div');
-                    holdingsSection.className = 'info-section';
-                    
-                    let holdingsHTML = '<h4>重仓股信息</h4><div class="holdings-table">';
-                    holdingsHTML += '<table><thead><tr><th>股票</th><th>持仓比例</th><th>涨跌幅</th><th>贡献</th></tr></thead><tbody>';
-                    
-                    fundData.holdings.forEach(holding => {
-                        holdingsHTML += `
-                            <tr>
-                                <td>${holding.stock_name} (${holding.stock_code})</td>
-                                <td>${holding.position_ratio}</td>
-                                <td class="${parseFloat(holding.change_percent) > 0 ? 'value-up' : parseFloat(holding.change_percent) < 0 ? 'value-down' : ''}">${holding.change_percent}</td>
-                                <td class="${parseFloat(holding.contribution) > 0 ? 'value-up' : parseFloat(holding.contribution) < 0 ? 'value-down' : ''}">${holding.contribution}</td>
-                            </tr>
-                        `;
-                    });
-                    
-                    holdingsHTML += '</tbody></table></div>';
-                    holdingsSection.innerHTML = holdingsHTML;
-                    fundCard.appendChild(holdingsSection);
-                }
-                
-                // 添加历史对照折线图
-                if (fundData.history && fundData.history.length > 0) {
-                    const historySection = document.createElement('div');
-                    historySection.className = 'info-section';
-                    historySection.innerHTML = `
-                        <h4>历史对照</h4>
-                        <div class="history-chart-container">
-                            <canvas id="historyChart-${fundCode}" width="400" height="200"></canvas>
-                        </div>
-                    `;
-                    fundCard.appendChild(historySection);
-                }
+                // 添加查看详情按钮
+                const detailButton = document.createElement('button');
+                detailButton.className = 'detail-button';
+                detailButton.innerHTML = '<i>📊</i> 查看详细信息';
+                detailButton.onclick = function() {
+                    showDetailModal(fundData, fundCode);
+                };
                 
                 // 组装卡片
                 fundCard.appendChild(fundTitle);
                 fundCard.appendChild(realTimeSection);
                 fundCard.appendChild(netValueSection);
+                fundCard.appendChild(detailButton);
                 
                 // 添加到容器
                 container.appendChild(fundCard);
+            });
+        }
+
+        // 显示详情模态窗口
+        function showDetailModal(fundData, fundCode) {
+            const modalTitle = document.querySelector('.modal-title');
+            const modalBody = document.getElementById('modalBody');
+            
+            // 设置标题
+            modalTitle.textContent = `${fundData.fund_name || `基金(${fundCode})`} 详细信息`;
+            
+            // 清空内容
+            modalBody.innerHTML = '';
+            
+            // 添加重仓股信息表格
+            if (fundData.holdings && fundData.holdings.length > 0) {
+                const holdingsSection = document.createElement('div');
+                holdingsSection.className = 'info-section';
                 
-                // 如果有历史数据，绘制折线图
-                if (fundData.history && fundData.history.length > 0) {
+                let holdingsHTML = '<h4>重仓股信息</h4><div class="holdings-table">';
+                holdingsHTML += '<table><thead><tr><th>股票</th><th>持仓比例</th><th>涨跌幅</th><th>贡献</th></tr></thead><tbody>';
+                
+                fundData.holdings.forEach(holding => {
+                    holdingsHTML += `
+                        <tr>
+                            <td>${holding.stock_name} (${holding.stock_code})</td>
+                            <td>${holding.position_ratio}</td>
+                            <td class="${parseFloat(holding.change_percent) > 0 ? 'value-up' : parseFloat(holding.change_percent) < 0 ? 'value-down' : ''}">${holding.change_percent}</td>
+                            <td class="${parseFloat(holding.contribution) > 0 ? 'value-up' : parseFloat(holding.contribution) < 0 ? 'value-down' : ''}">${holding.contribution}</td>
+                        </tr>
+                    `;
+                });
+                
+                holdingsHTML += '</tbody></table></div>';
+                holdingsSection.innerHTML = holdingsHTML;
+                modalBody.appendChild(holdingsSection);
+            }
+            
+            // 添加历史对照折线图
+            if (fundData.history && fundData.history.length > 0) {
+                const historySection = document.createElement('div');
+                historySection.className = 'info-section';
+                historySection.innerHTML = `
+                    <h4>历史对照</h4>
+                    <div class="history-chart-container">
+                        <canvas id="historyChart-${fundCode}" width="400" height="200"></canvas>
+                    </div>
+                `;
+                modalBody.appendChild(historySection);
+                
+                // 显示模态窗口后绘制图表
+                setTimeout(() => {
                     drawHistoryChart(fundCode, fundData.history);
-                }
+                }, 100);
+            }
+            
+            // 显示模态窗口和遮罩层
+            document.getElementById('modalOverlay').style.display = 'block';
+            document.getElementById('detailModal').style.display = 'block';
+        }
+
+        // 关闭详情模态窗口
+        function closeDetailModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        // 使模态窗口可拖动
+        function makeModalDraggable() {
+            const modal = document.getElementById('detailModal');
+            const header = document.getElementById('modalHeader');
+            
+            let isDragging = false;
+            let offsetX, offsetY;
+            
+            header.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                offsetX = e.clientX - modal.getBoundingClientRect().left;
+                offsetY = e.clientY - modal.getBoundingClientRect().top;
+                
+                // 防止文本被选中
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                
+                const x = e.clientX - offsetX;
+                const y = e.clientY - offsetY;
+                
+                // 设置新位置，使用translate而不是top/left以获得更好的性能
+                modal.style.transform = `translate(${x}px, ${y}px)`;
+                modal.style.top = '0';
+                modal.style.left = '0';
+            });
+            
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
             });
         }
 
@@ -785,6 +1004,13 @@
         // 页面加载时获取基金列表
         document.addEventListener('DOMContentLoaded', function() {
             loadFundList();
+            
+            // 添加点击遮罩层关闭模态窗口
+            document.body.addEventListener('click', function(e) {
+                if (e.target.id === 'modalOverlay') {
+                    closeDetailModal();
+                }
+            });
         });
     </script>
 </body>
