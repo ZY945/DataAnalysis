@@ -62,18 +62,18 @@ source venv/bin/activate
 - 前端：HTML, CSS, JavaScript
 - API：RESTful API
 
-# 生成requirements.txt
-# 先安装pipreqs
-pip install pipreqs
-
-# 然后在项目根目录运行
-pipreqs ./ --encoding=utf8
-
 # 数据来源说明
 
 ## 大A股市，ETF数据来源
 数据来源: https://github.com/1nchaos/adata
+## 基金
+天天基金网-https://fund.eastmoney.com/fund.html
 
+## 相关资料
+https://tushare.pro/ --需要积分
+https://fund.eastmoney.com/fund.html#os_0;isall_0;ft_;pt_1
+https://github.com/akfamily/akshare?tab=readme-ov-file
+https://gitee.com/wkingnet/stock-analysis --通达信数据转换
 
 # 贡献
 欢迎大家贡献代码，共同完善这个项目。
@@ -83,12 +83,12 @@ pipreqs ./ --encoding=utf8
 3. 审核通过后，合并到主分支
 4. 发布新版本
 
-## 生成requirements.txt
-# 安装
+### 生成requirements.txt
+#### 安装
 pip install pipreqs
-# 在当前目录生成
+#### 在当前目录生成
 pipreqs . --encoding=utf8 --force
-## 和 akshare 的依赖有冲突
+#### 和 akshare 的依赖有冲突
 https://github.com/1nchaos/adata/issues/122
 
 下载https://github.com/sqreen/PyMiniRacer/files/7575004/libmini_racer.dylib.zip
